@@ -1,5 +1,6 @@
 package com.fileuploader;
 
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
@@ -12,6 +13,7 @@ import com.microsoft.azure.storage.blob.ListBlobItem;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -575,16 +577,22 @@ public class FileUploader {
 	}
 
 	public static void uploadFilesToGoogleCloudStorage(){
-		EfisalesResource resources= Utility.getResources();
-		String[] files= getFilesInDirectory(resources.getUploadsPath());
+		try{
+			FileUploaderConfig uploaderConfig= Utility.getFileUploaderConfig();
+			String[] files= getFilesInDirectory(uploaderConfig.getUploadsPath());
 
-		for(String file: files){
-			uploadFileToGoogleStorage(resources.getUploadsPath()+file);
+			for(String file: files){
+				uploadFileToGoogleStorage(uploaderConfig.getUploadsPath()+file);
+			}
+		}
+		catch (Exception ex){
+			Utility.logStackTrace(ex);
 		}
 	}
 
-	public synchronized static void uploadFileToGoogleStorage(String filePath){
-		EfisalesResource resources= Utility.getResources();
+	public synchronized static void uploadFileToGoogleStorage(String filePath)
+		throws IOException{
+		FileUploaderConfig fileUploaderConfig= Utility.getFileUploaderConfig();
 
 		String filename=filePath.substring(filePath.lastIndexOf("\\")+1);
 
@@ -592,10 +600,13 @@ public class FileUploader {
 
 		Utility.log("Uploading file: "+ filePath+ ", to google storage", Level.INFO);
 
-		Storage googleStorage= StorageOptions.newBuilder().
-				setProjectId(resources.getGcpProjectId()).build().getService();
+		GoogleCredentials googleCredentials=GoogleCredentials.fromStream(
+				new FileInputStream(fileUploaderConfig.getCredentialsPath()));
 
-		BlobId blobId= BlobId.of(resources.getGcpBlobsBucket(),filename);
+		Storage googleStorage= StorageOptions.newBuilder().setCredentials(googleCredentials).
+				setProjectId(fileUploaderConfig.getGcpStorageProjectId()).build().getService();
+
+		BlobId blobId= BlobId.of(fileUploaderConfig.getGcpStorageBucket(),filename);
 		BlobInfo blobInfo= BlobInfo.newBuilder(blobId).build();
 
 		try{

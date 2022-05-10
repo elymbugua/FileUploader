@@ -35,6 +35,8 @@ public class Utility {
     
     static EfisalesResource efisalesResource=null;
 
+    static FileUploaderConfig fileUploaderConfig=null;
+
     private static final Object reloadResourcesLock = new Object();
 
     public static String getSiteVersion() {
@@ -342,8 +344,7 @@ public class Utility {
 
         try {
             bufferedReader = new BufferedReader(new FileReader(resourceFile));
-            Type type = new TypeToken<EfisalesResource>() {
-            }.getType();
+            Type type = new TypeToken<EfisalesResource>() {}.getType();
             efisalesResource = new Gson().fromJson(bufferedReader, type);
             efisalesResource.DbPassword = Encryptor.Decrypt(efisalesResource.DbPassword);
             efisalesResource.SmtpPassword = Encryptor.Decrypt(efisalesResource.SmtpPassword);
@@ -356,7 +357,6 @@ public class Utility {
             }
         }
         return null;
-
     }
 
     public static void refreshResources() {
@@ -367,6 +367,50 @@ public class Utility {
             long timeTaken = System.currentTimeMillis() - startTime;
             Utility.log("Done Reloading Config took " + timeTaken, Level.SEVERE);
         }
+    }
+
+    public synchronized static FileUploaderConfig getFileUploaderConfig(){
+        if(fileUploaderConfig!=null) return fileUploaderConfig;
+
+        String homeFolder= GoogleDriveUtils.USER_HOME_FOLDER;
+        String resourcesFileName="file-uploader-config.json";
+        String resourceFile="";
+
+        Utility.log("Path Separator: "+ File.pathSeparator, Level.INFO);
+        Utility.log("Path SeparatorChar: "+ File.pathSeparatorChar, Level.INFO);
+
+        if(File.pathSeparator.equals("/") ||
+                File.pathSeparator.equals(":")){
+            resourceFile= homeFolder.endsWith("/")?homeFolder+resourcesFileName
+                    :homeFolder+"/"+resourcesFileName;
+        }
+        else{
+            resourceFile= homeFolder.endsWith("\\")?homeFolder+resourcesFileName
+                    :homeFolder+"\\"+resourcesFileName;
+        }
+
+
+        if (resourceFile == null) {
+            log("Config path environment variable not resolved", Level.SEVERE);
+        } else {
+            log(resourceFile, Level.INFO);
+        }
+
+        BufferedReader bufferedReader = null;
+
+        try {
+            bufferedReader = new BufferedReader(new FileReader(resourceFile));
+            Type type = new TypeToken<FileUploaderConfig>() {}.getType();
+            fileUploaderConfig = new Gson().fromJson(bufferedReader, type);
+            return fileUploaderConfig;
+        } catch (Exception e) {
+            log(e.toString(), Level.SEVERE);
+
+            if (bufferedReader == null) {
+                log("Config file not resolved. Probably permission issues", Level.SEVERE);
+            }
+        }
+        return null;
     }
 
     public static void log(String message, Level logLevel) {
