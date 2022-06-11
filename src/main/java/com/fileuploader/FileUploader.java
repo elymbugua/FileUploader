@@ -1,10 +1,8 @@
 package com.fileuploader;
 
+import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.*;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
@@ -23,6 +21,8 @@ import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
@@ -33,6 +33,8 @@ import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 
 import java.util.logging.Level;
+import java.util.stream.Collectors;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
@@ -581,6 +583,11 @@ public class FileUploader {
 			FileUploaderConfig uploaderConfig= Utility.getFileUploaderConfig();
 			String[] files= getFilesInDirectory(uploaderConfig.getUploadsPath());
 
+			if(files.length>0){
+				//delete older backups
+				deleteOlderBackupsInGCPCloudStorage(uploaderConfig.getGcpStorageBucket());
+			}
+
 			for(String file: files){
 				uploadFileToGoogleStorage(uploaderConfig.getUploadsPath()+file);
 			}
@@ -588,6 +595,12 @@ public class FileUploader {
 		catch (Exception ex){
 			Utility.logStackTrace(ex);
 		}
+	}
+
+	public synchronized static GoogleCredentials getCredentials()throws IOException{
+		FileUploaderConfig fileUploaderConfig= Utility.getFileUploaderConfig();
+		return GoogleCredentials.fromStream(
+				new FileInputStream(fileUploaderConfig.getCredentialsPath()));
 	}
 
 	public synchronized static void uploadFileToGoogleStorage(String filePath)
@@ -600,10 +613,7 @@ public class FileUploader {
 
 		Utility.log("Uploading file: "+ filePath+ ", to google storage", Level.INFO);
 
-		GoogleCredentials googleCredentials=GoogleCredentials.fromStream(
-				new FileInputStream(fileUploaderConfig.getCredentialsPath()));
-
-		Storage googleStorage= StorageOptions.newBuilder().setCredentials(googleCredentials).
+		Storage googleStorage= StorageOptions.newBuilder().setCredentials(getCredentials()).
 				setProjectId(fileUploaderConfig.getGcpStorageProjectId()).build().getService();
 
 		BlobId blobId= BlobId.of(fileUploaderConfig.getGcpStorageBucket(),filename);
@@ -643,6 +653,34 @@ public class FileUploader {
 		catch (Exception ex){
 
 		}
+	}
+
+	public static void deleteOlderBackupsInGCPCloudStorage(String bucket)throws IOException{
+		Storage googleStorage= StorageOptions.newBuilder().setCredentials(getCredentials()).
+				setProjectId(Utility.getFileUploaderConfig().getGcpStorageProjectId()).build().getService();
+		Page<Blob> blobs=googleStorage.list(bucket);
+		List<Blob> backupBlobs= new ArrayList<>(1000);
+		for(Blob blob:blobs.iterateAll()){
+			String name= blob.getName();
+
+			if(name.endsWith(".bak")){
+				backupBlobs.add(blob);
+			}
+		}
+
+		Map<String,List<Blob>> blobGroupings= backupBlobs.stream().collect(Collectors.groupingBy(b->b.getName().
+				substring(0,b.getName().indexOf("_"))));
+
+		blobGroupings.forEach((key,blobGroup)->{
+			blobGroup.sort(Comparator.comparing(b->b.getCreateTime()));
+			for(int i=0;i<blobGroup.size()-3;i++){
+				Blob blob=blobGroup.get(i);
+				Utility.log("Deleting older backup created on: "+
+						Formatter.formatDateTime(new Date(blob.getCreateTime())),Level.INFO);
+				blobGroup.get(i).delete();
+			}
+
+		});
 	}
 
 }

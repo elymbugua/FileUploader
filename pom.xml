@@ -7,10 +7,7 @@
 	<groupId>com.mbugua.files</groupId>
 	<artifactId>fileuploader</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0</version>
-
-
-
+	<version>1.2</version>
 	<repositories>
 		<repository>
 			<id>objectdb</id>
