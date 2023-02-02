@@ -379,8 +379,7 @@ public class Utility {
         Utility.log("Path Separator: "+ File.pathSeparator, Level.INFO);
         Utility.log("Path SeparatorChar: "+ File.pathSeparatorChar, Level.INFO);
 
-        if(File.pathSeparator.equals("/") ||
-                File.pathSeparator.equals(":")){
+        if(File.pathSeparator.equals("/") || File.pathSeparator.equals(":")){
             resourceFile= homeFolder.endsWith("/")?homeFolder+resourcesFileName
                     :homeFolder+"/"+resourcesFileName;
         }
@@ -415,28 +414,6 @@ public class Utility {
 
     public static void log(String message, Level logLevel) {
         logger.log(logLevel, message);
-        /*if (efisalesResource != null) {
-            LogPayload logPayLoad = new LogPayload();
-            logPayLoad.ApplicationId = getResources().getApplicationId();
-            logPayLoad.OS = efisalesResource.getRuntime();
-            logPayLoad.LogMessage = message;
-
-            if (logLevel == Level.INFO) {
-                logPayLoad.LogCategorization = LogConstants.Info;
-            } else if (logLevel == Level.SEVERE) {
-                logPayLoad.LogCategorization = LogConstants.Error;
-            } else if (logLevel == Level.WARNING) {
-                logPayLoad.LogCategorization = LogConstants.Warning;
-            } else {
-                logPayLoad.LogCategorization = LogConstants.Error;
-            }
-
-            logPayLoad.LoggingDate = new Date();
-            logPayLoad.LoggingSource = LogSource.AppLogger;
-            logPayLoad.IpAddress = Utility.getHostIP();
-            HunterConnector.log(logPayLoad);
-        }*/
-
     }
 
     public static void logStackTrace(Exception ex) {
@@ -448,14 +425,12 @@ public class Utility {
     }
 
     public static Double roundNumber(Number n, int decimalPlaces) {
-
         return new BigDecimal((Double) n).
                 round(new MathContext(decimalPlaces)).doubleValue();
     }
 
 
     public static String getHostMacAddress() {
-
         try {
 
             if (Utility.getResources().getAppEnvironment() != null && Utility.getResources()

@@ -599,8 +599,7 @@ public class FileUploader {
 
 	public synchronized static GoogleCredentials getCredentials()throws IOException{
 		FileUploaderConfig fileUploaderConfig= Utility.getFileUploaderConfig();
-		return GoogleCredentials.fromStream(
-				new FileInputStream(fileUploaderConfig.getCredentialsPath()));
+		return GoogleCredentials.fromStream(new FileInputStream(fileUploaderConfig.getCredentialsPath()));
 	}
 
 	public synchronized static void uploadFileToGoogleStorage(String filePath)
@@ -662,7 +661,6 @@ public class FileUploader {
 		List<Blob> backupBlobs= new ArrayList<>(1000);
 		for(Blob blob:blobs.iterateAll()){
 			String name= blob.getName();
-
 			if(name.endsWith(".bak")){
 				backupBlobs.add(blob);
 			}
@@ -677,7 +675,7 @@ public class FileUploader {
 				Blob blob=blobGroup.get(i);
 				Utility.log("Deleting older backup created on: "+
 						Formatter.formatDateTime(new Date(blob.getCreateTime())),Level.INFO);
-				blobGroup.get(i).delete();
+				blob.delete();
 			}
 
 		});
