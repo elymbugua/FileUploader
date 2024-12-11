@@ -9,9 +9,10 @@ public class DAL {
 	
 	private static EntityManagerFactory getEntityManagerFactory(){
 		if(entityManagerFactory!=null) return entityManagerFactory;
-		
+
+		var config= Utility.getFileUploaderConfig();
 		entityManagerFactory= Persistence.
-				createEntityManagerFactory(Utility.getResources().getUploaderDbPath());
+				createEntityManagerFactory(config.getUploaderDbPath());
 		
 		return entityManagerFactory;
 	}

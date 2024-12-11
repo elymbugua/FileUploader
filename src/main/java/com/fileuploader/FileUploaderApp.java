@@ -30,6 +30,8 @@ public class FileUploaderApp {
 							.repeatForever())
 					.build();
 
+			scheduler.scheduleJob(job,trigger);
+
 			JobDetail downloadsJob = newJob(AzureDownloads.class)
 					.withIdentity("myJob2", "group1")
 					.build();

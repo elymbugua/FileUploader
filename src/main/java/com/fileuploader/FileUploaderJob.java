@@ -15,18 +15,13 @@ public class FileUploaderJob implements Job {
 	
 	private static final Object uploadsLock= new Object();
 	static boolean fileInSubFolder=false;
+	static FileUploaderConfig config= Utility.getFileUploaderConfig();
 	
 	public static void uploadFiles(){
 		
 		synchronized (uploadsLock){
-			//Need functionality to create dirs on azure storage to avoid scattering of
-			//related files
-			//FileUploader.uploadFilesToAzure();
-			
-			EfisalesResource resources= Utility.getResources();
-			
 			String[] files= FileUploader.
-					getFilesInDirectory(resources.getDatabaseBackupsPath());
+					getFilesInDirectory(config.getDatabaseBackupsPath());
 			
 			Utility.log("Unuploaded files found "+ files.length,Level.INFO);
 			
@@ -34,13 +29,13 @@ public class FileUploaderJob implements Job {
 				
 				try{
 					if(Files.isDirectory(
-							Paths.get(resources.getDatabaseBackupsPath()+fileName),
+							Paths.get(config.getDatabaseBackupsPath()+fileName),
 							LinkOption.NOFOLLOW_LINKS)){
 						
 						String folderId=null;
 						
 						String[] filesInDirectory=FileUploader.
-								getFilesInDirectory(resources.getDatabaseBackupsPath()+fileName);
+								getFilesInDirectory(config.getDatabaseBackupsPath()+fileName);
 						
 						if(filesInDirectory!=null && filesInDirectory.length>0){
 							
@@ -55,7 +50,7 @@ public class FileUploaderJob implements Job {
 							if(folder==null){
 								gDriveDirectory=
 										GoogleDriveWorker.createGoogleDriveFolder(
-												GoogleDriveWorker.BASE_BACKUPS_FOLDERID,dirName);
+												GoogleDriveWorker.BASE_BACKUPS_FOLDER_ID,dirName);
 								
 								if(gDriveDirectory==null){
 									Utility.log("Could not create google drive directory -> "+dirName ,Level.INFO);
@@ -72,16 +67,16 @@ public class FileUploaderJob implements Job {
 							
 							for(String file: filesInDirectory){
 								fileInSubFolder=true;
-								String fileSeparator= resources.getRuntime().equals("linux")?"/":"\\";
-								uploadFileToGoogleDrive(folderId,resources.getDatabaseBackupsPath()+ fileName+ fileSeparator+ file);
+								String fileSeparator= config.getRuntime().equals("linux")?"/":"\\";
+								uploadFileToGoogleDrive(folderId,config.getDatabaseBackupsPath()+ fileName+ fileSeparator+ file);
 							}
 						}
 						
 					}
 					else {
-						String filepath=resources.getDatabaseBackupsPath()+fileName;
+						String filepath=config.getDatabaseBackupsPath()+fileName;
 						fileInSubFolder=false;
-						uploadFileToGoogleDrive(GoogleDriveWorker.BASE_BACKUPS_FOLDERID,filepath);
+						uploadFileToGoogleDrive(GoogleDriveWorker.BASE_BACKUPS_FOLDER_ID,filepath);
 					}
 				
 				}
@@ -96,9 +91,8 @@ public class FileUploaderJob implements Job {
 	public static void uploadFileToGoogleDrive(String parentDirectory,String filePath){
 		
 		try{
-			EfisalesResource resources= Utility.getResources();
-			
-			String fileName=resources.getRuntime().equals("linux")?
+
+			String fileName=config.getRuntime().equals("linux")?
 					filePath.substring(filePath.lastIndexOf("/")+1):
 					filePath.substring(filePath.lastIndexOf("\\")+1);
 			
@@ -131,16 +125,13 @@ public class FileUploaderJob implements Job {
 			}
 			
 			if(uploaded){
-				boolean deleted=false;//FileUploader.deleteFile(filePath);
+				boolean deleted=FileUploader.deleteFile(filePath);
 				
 				if(!deleted){
 					Utility.log("Could not delete the file: "+ fileName,Level.INFO);
 				}
-				
-				if(uploaded){
-					DAL.addFile(fileName);
-				}
-				
+
+				DAL.addFile(fileName);
 			}
 		}
 		catch (Exception ex){

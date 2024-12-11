@@ -1,37 +1,13 @@
 package com.fileuploader;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class FileUploaderConfig {
-    private String GcpStorageProjectId,GcpStorageBucket,CredentialsPath,UploadsPath;
-
-    public String getGcpStorageProjectId() {
-        return GcpStorageProjectId;
-    }
-
-    public void setGcpStorageProjectId(String gcpStorageProjectId) {
-        GcpStorageProjectId = gcpStorageProjectId;
-    }
-
-    public String getGcpStorageBucket() {
-        return GcpStorageBucket;
-    }
-
-    public void setGcpStorageBucket(String gcpStorageBucket) {
-        GcpStorageBucket = gcpStorageBucket;
-    }
-
-    public String getCredentialsPath() {
-        return CredentialsPath;
-    }
-
-    public void setCredentialsPath(String credentialsPath) {
-        CredentialsPath = credentialsPath;
-    }
-
-    public String getUploadsPath() {
-        return UploadsPath;
-    }
-
-    public void setUploadsPath(String uploadsPath) {
-        UploadsPath = uploadsPath;
-    }
+    private String GcpStorageProjectId,GcpStorageBucket,CredentialsPath,UploadsPath,
+    AzureConnectionString,TempDir,BlobStorageContainer,DatabaseBackupContainer,Runtime,
+            UploaderDbPath,DatabaseBackupsPath;
+    private boolean DeleteOldDbBackups;
 }

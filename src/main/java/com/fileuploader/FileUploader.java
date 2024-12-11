@@ -21,8 +21,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
@@ -52,17 +50,13 @@ public class FileUploader {
 			new HashMap<>();
 	
 	private boolean uploadToInstantUploads = false;
-	EfisalesResource resources;
-	
 	
 	public String fileError = null;
-	
-	public static String azureStorageConnectionString = "DefaultEndpointsProtocol=http;AccountName=efisalesdiststorage;" +
-			"AccountKey=k6O98+bZ7rhEEQJsyturuemrHe8CnZvHXvnDO2k9pEDfnuHPY3llW+BADq5OWE8JWqSd2sKBeIpRZ4JDd+SdQA==";
 	
 	static CloudBlobContainer blobContainer = null, databaseBackupBlobContainer = null;
 	private final static Object uploadObject = new Object();
 	private boolean renameFiles;
+	static FileUploaderConfig config= Utility.getFileUploaderConfig();
 	
 	public FileUploader() {
 		this(false);
@@ -70,8 +64,7 @@ public class FileUploader {
 	
 	public FileUploader(boolean renameFiles) {
 		this.renameFiles = renameFiles;
-		resources = Utility.getResources();
-		uploadLocation = resources.getUploadsPath();
+		uploadLocation = config.getUploadsPath();
 		basePath = uploadLocation;
 	}
 	
@@ -92,244 +85,24 @@ public class FileUploader {
 		basePath = uploadLocation;
 	}
 	
-	
-	public String uploadFiles(HttpServletRequest httpRequest) {
-		//maximum file size that can be uploaded
-		//maxFileSize =
-				//Integer.parseInt(httpRequest.getServletContext().getInitParameter("uploadsize"));
-		
-		//maximum file in memory while processing
-		//maxUploadMemSize =
-				//Integer.parseInt(httpRequest.getServletContext().getInitParameter("maxuploadmemsize"));
-		
-		//where file chunks are stored while processing
-		tempFolder = resources.getTempDir();//httpRequest.getServletContext().getInitParameter("tempfolder");
-		
-		//request should be multipart/form-data
-		isMultiPart = ServletFileUpload.isMultipartContent(httpRequest);
-		
-		
-		if (!isMultiPart) {
-			return "request not multipart";
-		}
-		
-		files.clear();
-		
-		DiskFileItemFactory factory = new DiskFileItemFactory();
-		factory.setSizeThreshold(maxUploadMemSize);
-		
-		factory.setRepository(new File(tempFolder));
-		
-		ServletFileUpload fileUploadHandler =
-				new ServletFileUpload(factory);
-		
-		fileUploadHandler.setSizeMax(maxFileSize);
-		
-		try {
-			
-			//parse the request to get file items
-			List items = fileUploadHandler.parseRequest(httpRequest);
-			
-			if (items.isEmpty()) {
-				items = fileItems;
-			}
-			
-			Iterator i = items.iterator();
-			
-			getFiles().clear();
-			
-			while (i.hasNext()) {
-				FileItem fi = (FileItem) i.next();
-				
-				if (!fi.isFormField()) {
-					
-					//Get the uploaded file parameters
-					//String fieldName= fi.getFieldName();
-					String fileName = fi.getName();
-					//String contentType=fi.getContentType();
-					//boolean isInMemory= fi.isInMemory();
-					//long sizeInBytes=fi.getSize();
-					
-					String pathSeparator = resources.getRuntime().equals("linux") ? "/" : "\\";
-					
-					int separators = fileName.lastIndexOf(pathSeparator);
-					
-					if (separators >= 0) {
-						fileName = fileName.substring(fileName.lastIndexOf(pathSeparator) + 1);
-					}
-					String fileExtension = FilenameUtils.getExtension(fileName);
-					
-					if (renameFiles) {
-						fileName = new Random().nextInt(5) + "_" + System.currentTimeMillis() + "." + fileExtension;
-						
-					}
-                    /*else{
-                        fileName=fileName.substring(fileName.lastIndexOf(pathSeparator)+1);
-                    }*/
-					try {
-						File baseDir = new File(basePath);
-						if (!baseDir.exists()) {
-							baseDir.mkdir();
-						}
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					file = new File(basePath + fileName);
-					
-					if (fi.getSize() > 0) {
-						fi.write(file);
-						files.add(fileName);
-					}
-				} else {
-					parameters.put(fi.getFieldName(),
-							fi.getString());
-				}
-			}
-		} catch (Exception ex) {
-			Utility.logStackTrace(ex);
-			return "Could not upload try again";
-		}
-		
-		return "uploaded";
-	}
-	
-	public synchronized String getParameterValueFromMultipartRequest(
-			String parameter) {
-		
-		for (Map.Entry<String, String> entry : parameters.entrySet()) {
-			if (parameter.equals(entry.getKey())) {
-				return entry.getValue();
-			}
-		}
-		
-		return null;
-		
-	}
-	
-	public synchronized void UploadImages(boolean resize, HttpServletRequest request,
-	                                      int maxDimension)
-			throws FileUploadException, IOException {
-		
-		//Only logos cannot be resized but must be 170 x 50 px
-		
-		//directory where files go
-		EfisalesResource resources = Utility.getResources();
-		basePath = resources.getUploadsPath();
-		isMultiPart = ServletFileUpload.isMultipartContent(request);
-		
-		if (!isMultiPart) {
-			fileError = "No images uploaded";
-			return;
-		}
-		
-		//maximum file size that can be uploaded
-		//maxFileSize =
-				//Integer.parseInt(request.getServletContext().getInitParameter("uploadsize"));
-		
-		//maximum file in memory while processing
-		//maxUploadMemSize =
-				//Integer.parseInt(request.getServletContext().getInitParameter("maxuploadmemsize"));
-		
-		//where file chunks are stored while processing
-		tempFolder = resources.getTempDir();
-		
-		DiskFileItemFactory factory = new DiskFileItemFactory();
-		factory.setSizeThreshold(maxUploadMemSize);
-		
-		factory.setRepository(new File(tempFolder));
-		
-		ServletFileUpload fileUpload =
-				new ServletFileUpload(factory);
-		
-		
-		fileUpload.setSizeMax(maxFileSize);
-		
-		List<FileItem> items = fileUpload.parseRequest(request);
-		Iterator<FileItem> itemsIterator = items.iterator();
-		
-		//clear any earlier files
-		files.clear();
-		
-		while (itemsIterator.hasNext()) {
-			
-			FileItem item = itemsIterator.next();
-			
-			String name = item.getFieldName();
-			
-			InputStream stream = item.getInputStream();
-			
-			if (!item.isFormField()) {
-				
-				String extension = item.getName().substring(item.getName().lastIndexOf(".") + 1);
-				
-				if (extension != null && !extension.trim().isEmpty()) {
-					extension = extension.toLowerCase();
-					
-					String fileName = item.getName().substring(0, item.getName().lastIndexOf(".") - 1).toLowerCase();
-					
-					fileName = fileName.replace(" ", "-");
-					
-					fileName += "_" + Calendar.getInstance().getTimeInMillis() + "." + extension;
-					
-					if (extension.equals("png") || extension.equals("jpg") ||
-							extension.equals("gif")) {
-						if (!resize) {
-							//this is a logo upload. Check the size
-							
-							BufferedImage img = ImageIO.read(stream);
-							
-							if (img == null) {
-								fileError = "Invalid Image Try again";
-								return;
-							}
-							
-							if (img.getWidth() > 170 || img.getHeight() > 50) {
-								fileError = "Logos should be 170px by 50px or smaller.";
-								return;
-							}
-							
-							ImageIO.write(img, extension, new File(basePath + fileName));
-							files.add(fileName);
-						}
-					} else {
-						fileError = "Invalid image type. Only PNG,JPG and GIF allowed.";
-					}
-				} else {
-					fileError = "Invalid image type. Only PNG,JPG and GIF allowed.";
-				}
-			} else {
-				parameters.put(item.getFieldName(), item.getString());
-			}
-		}
-		
-	}
-	
-	public static String getBasePath(HttpServletRequest request) {
-		//directory where files go
-		EfisalesResource resources = Utility.getResources();
-		return resources.getUploadsPath();
-	}
-	
 	public static void uploadFilesToAzure() {
 		
 		synchronized (uploadObject) {
-			EfisalesResource efisalesResources = Utility.getResources();
-			
-			String[] filesToUpload = getFilesInDirectory(efisalesResources.getUploadsPath());
+			String[] filesToUpload = getFilesInDirectory(config.getUploadsPath());
 			
 			if (filesToUpload != null) {
 				for (String file : filesToUpload) {
-					uploadFileToAzureHelper(efisalesResources.getUploadsPath() + file, getBlobContainer());
+					uploadFileToAzureHelper(config.getUploadsPath() + file, getBlobContainer());
 				}
 			}
 			
 			//Upload database backups
-			String[] dbBackups = getFilesInDirectory(efisalesResources.getDatabaseBackupsPath());
+			String[] dbBackups = getFilesInDirectory(config.getDatabaseBackupsPath());
 			
 			if (dbBackups != null) {
 				for (String backup : dbBackups) {
 					Utility.log("Uploading backup "+ backup, Level.INFO);
-					uploadFileToAzureHelper(efisalesResources.getDatabaseBackupsPath() + backup,
+					uploadFileToAzureHelper(config.getDatabaseBackupsPath() + backup,
 							getDatabaseBackupBlobContainer());
 				}
 			} else {
@@ -339,11 +112,9 @@ public class FileUploader {
 	}
 	
 	public static void uploadFileToAzureHelper(String filePath, CloudBlobContainer container) {
-		
-		EfisalesResource efisalesResources = Utility.getResources();
 		boolean uploaded = false;
 		
-		String pathSeparator = efisalesResources.getRuntime().equals("linux") ? "/" : "\\";
+		String pathSeparator = config.getRuntime().equals("linux") ? "/" : "\\";
 		
 		String fileName = filePath.substring(filePath.lastIndexOf(pathSeparator) + 1);
 		
@@ -374,19 +145,19 @@ public class FileUploader {
 		if (blobContainer != null)
 			return blobContainer;
 		
-		EfisalesResource eResource = Utility.getResources();
+		var config = Utility.getFileUploaderConfig();
 		
 		try {
 			// Retrieve storage account from connection-string.
 			CloudStorageAccount cloudStorageAccount =
-					CloudStorageAccount.parse(azureStorageConnectionString);
+					CloudStorageAccount.parse(config.getAzureConnectionString());
 			
 			// Create the blob client.
 			CloudBlobClient cloudBlobClient = cloudStorageAccount.createCloudBlobClient();
 			
 			// Retrieve reference to a previously created container.
 			blobContainer = cloudBlobClient.
-					getContainerReference(eResource.getBlobStorageContainer());
+					getContainerReference(config.getBlobStorageContainer());
 		} catch (Exception ex) {
 			Utility.logStackTrace(ex);
 		}
@@ -395,9 +166,7 @@ public class FileUploader {
 	}
 	
 	public static void deleteOldDbBackups(){
-		EfisalesResource efisalesResources= Utility.getResources();
-		
-		if(efisalesResources.deleteOldDbBackups()){
+		if(config.isDeleteOldDbBackups()){
 			CloudBlobContainer dbbackupsContainer= getDatabaseBackupBlobContainer();
 			
 			for(ListBlobItem backupFileName: dbbackupsContainer.listBlobs()){
@@ -417,20 +186,18 @@ public class FileUploader {
 	public static CloudBlobContainer getDatabaseBackupBlobContainer() {
 		if (databaseBackupBlobContainer != null)
 			return databaseBackupBlobContainer;
-		
-		EfisalesResource eResource = Utility.getResources();
-		
+
 		try {
 			// Retrieve storage account from connection-string.
 			CloudStorageAccount cloudStorageAccount =
-					CloudStorageAccount.parse(azureStorageConnectionString);
+					CloudStorageAccount.parse(config.getAzureConnectionString());
 			
 			// Create the blob client.
 			CloudBlobClient cloudBlobClient = cloudStorageAccount.createCloudBlobClient();
 			
 			// Retrieve reference to a previously created container.
 			databaseBackupBlobContainer = cloudBlobClient.
-					getContainerReference(eResource.getDatabaseBackupContainer());
+					getContainerReference(config.getDatabaseBackupContainer());
 		} catch (Exception ex) {
 			Utility.logStackTrace(ex);
 		}
@@ -458,7 +225,7 @@ public class FileUploader {
 		try {
 			if (filePath != null && !filePath.isEmpty()) {
 				
-				String pathSeparator = Utility.getResources().getRuntime().equals("linux") ? "/" : "\\";
+				String pathSeparator = config.getRuntime().equals("linux") ? "/" : "\\";
 				
 				String fileName = filePath.substring(filePath.lastIndexOf(pathSeparator) + 1);
 				CloudBlockBlob cloudBlob = container.getBlockBlobReference(fileName);
@@ -634,15 +401,14 @@ public class FileUploader {
 		CloudBlobContainer blobsContainer= getBlobContainer();
 
 		try{
-			EfisalesResource resources= Utility.getResources();
 
 			for(ListBlobItem blobItem: blobsContainer.listBlobs()){
 				String path=blobItem.getUri().getPath();
 				String filename=path.substring(path.lastIndexOf("/")+1);
 
-				if(!DAL.fileExists(filename) && !Files.exists(Paths.get(resources.getUploadsPath()+filename))){
+				if(!DAL.fileExists(filename) && !Files.exists(Paths.get(config.getUploadsPath()+filename))){
 					Utility.log("URI: "+ blobItem.getUri().toString(), Level.INFO);
-					downloadFile(blobItem.getUri().toString(),resources.getUploadsPath() + filename);
+					downloadFile(blobItem.getUri().toString(),config.getUploadsPath() + filename);
 				}
 				else{
 					Utility.log(filename+ " exists, skipping", Level.INFO);

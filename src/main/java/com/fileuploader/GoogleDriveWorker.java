@@ -24,7 +24,7 @@ public class GoogleDriveWorker {
 	public static final ConcurrentHashMap<String,String>
 			FOLDER_IDS_MAP= new ConcurrentHashMap<>();
 	
-	public static final String BASE_BACKUPS_FOLDERID="11I5OgqN4Y7OiCV0YYrVsaZ6DBPSipyV1";
+	public static final String BASE_BACKUPS_FOLDER_ID ="11I5OgqN4Y7OiCV0YYrVsaZ6DBPSipyV1";
 	
 	public static final File createGoogleDriveFolder(String parentFolder,
 	                                                 String folderName)
